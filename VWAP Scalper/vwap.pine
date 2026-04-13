@@ -1,0 +1,59 @@
+// This sets up the strategy properties with real-world commissions
+//@version=5
+strategy("Institutional VWAP Scalper", overlay=true, initial_capital=1000, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_type=strategy.commission.percent, commission_value=0.01)
+
+// ==========================================
+// 1. DEFINE OUR INDICATORS (FEATURES)
+// ==========================================
+
+// VWAP (Volume Weighted Average Price)
+vwapValue = ta.vwap
+
+// Volume Spike Detector
+// Calculate the average volume over the last 20 minutes
+volSma = ta.sma(volume, 20)
+// Current volume must be at least 1.5x (50% higher) than the average
+highVolume = volume > (volSma * 1.5)
+
+
+// ==========================================
+// 2. DEFINE THE ENTRY LOGIC
+// ==========================================
+
+// Price violently crosses ABOVE the VWAP line
+vwapCross = ta.crossover(close, vwapValue)
+
+// Combine them: VWAP reclaim + Institutional Volume
+longCondition = vwapCross and highVolume
+
+
+// ==========================================
+// 3. EXECUTE THE ENTRY
+// ==========================================
+if (longCondition)
+    strategy.entry("Buy Call", strategy.long)
+
+
+// ==========================================
+// 4. DEFINE THE EXIT LOGIC
+// ==========================================
+// We are aiming for a quick 0.20% scalp, with a tight 0.10% leash
+takeProfitPerc = 0.20 / 100 
+stopLossPerc = 0.10 / 100   
+
+takeProfitLevel = strategy.position_avg_price * (1 + takeProfitPerc)
+stopLossLevel = strategy.position_avg_price * (1 - stopLossPerc)
+
+if (strategy.position_size > 0)
+    strategy.exit("Exit Call", "Buy Call", limit=takeProfitLevel, stop=stopLossLevel)
+
+
+// ==========================================
+// 5. VISUALS
+// ==========================================
+// Plot the VWAP line in bright blue
+plot(vwapValue, color=color.new(color.blue, 0), title="VWAP", linewidth=2)
+
+// // Only plot the green triangle if the condition is met AND we are not currently in a trade
+// actualBuyTrigger = longCondition and strategy.position_size == 0
+// plotshape(series=actualBuyTrigger, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.small)
