@@ -20,13 +20,17 @@ def train_trading_model(csv_filename):
     X_train, X_test = X.iloc[:split_index], X.iloc[split_index:]
     y_train, y_test = y.iloc[:split_index], y.iloc[split_index:]
     
+    # Increased the number of trees to handle the features
+    model = RandomForestClassifier(n_estimators=200, max_depth=10, min_samples_split=20, random_state=42)
+    model.fit(X_train, y_train)
+    
     predictions = model.predict(X_test)
     precision = precision_score(y_test, predictions, zero_division=0)
     
     print("\n--- UPGRADED MODEL RESULTS ---")
     print(f"Model Precision: {precision * 100:.2f}%")
     
-    # Number of Trades Taken
+    # Number of Trades
     trades_taken = sum(predictions)
     print(f"Total 'Buy' signals generated on test data: {trades_taken}")
 
