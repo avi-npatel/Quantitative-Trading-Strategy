@@ -11,27 +11,27 @@ def fetch_and_prep_data(ticker_symbol):
     df.dropna(inplace=True)
     print("Calculating advanced features natively...")
 
-    # 1. Volatility: Bollinger Bands & SMA
+    # Volatility: Bollinger Bands & SMA
     df['SMA_20'] = df['Close'].rolling(window=20).mean()
     df['STDEV_20'] = df['Close'].rolling(window=20).std()
     df['BBU_20'] = df['SMA_20'] + (df['STDEV_20'] * 2)
     df['BBL_20'] = df['SMA_20'] - (df['STDEV_20'] * 2)
     
-    # 2. Momentum: RSI
+    # Momentum: RSI
     delta = df['Close'].diff()
     gain = delta.clip(lower=0).ewm(alpha=1/14, min_periods=14, adjust=False).mean()
     loss = -delta.clip(upper=0).ewm(alpha=1/14, min_periods=14, adjust=False).mean()
     rs = gain / loss
     df['RSI_14'] = 100 - (100 / (1 + rs))
 
-    # 3. Trend: MACD (12, 26, 9)
+    # Trend: MACD (12, 26, 9)
     df['EMA_12'] = df['Close'].ewm(span=12, adjust=False).mean()
     df['EMA_26'] = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = df['EMA_12'] - df['EMA_26']
     df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
     df['MACD_Hist'] = df['MACD'] - df['MACD_Signal'] # The difference between MACD and Signal
 
-    # 4. Velocity: Rate of Change (ROC) over 5 minutes
+    # Velocity: Rate of Change (ROC) over 5 minutes
     df['ROC_5'] = df['Close'].pct_change(periods=5) * 100
 
     df.dropna(inplace=True) 
