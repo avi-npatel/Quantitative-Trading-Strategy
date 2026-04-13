@@ -1,10 +1,9 @@
-// This sets up the strategy properties
+// Strategy properties
 //@version=5
 // strategy("My First MACD/RSI Algo v3", overlay=true, initial_capital=1000, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
 strategy("My First MACD/RSI Algo v3", overlay=true, initial_capital=1000, default_qty_type=strategy.percent_of_equity, default_qty_value=100, commission_type=strategy.commission.percent, commission_value=0.01)
-// ==========================================
-// 1. DEFINE OUR INDICATORS (FEATURES)
-// ==========================================
+
+// 1. INDICATORS
 
 // RSI
 rsiLength = input(14, title="RSI Length")
@@ -13,51 +12,34 @@ rsiValue = ta.rsi(close, rsiLength)
 // MACD 
 [macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
 
-// TWEAK 1: Changed from 200 SMA to 50 SMA for intraday momentum
+// Changed from 200 SMA to 50 SMA for intraday momentum
 sma50 = ta.sma(close, 50)
 
 
-// // ==========================================
-// // 2. DEFINE THE ENTRY LOGIC
-// // ==========================================
-
-// // TWEAK 2: Loosened RSI requirement from 40 to 50
+// // ENTRY
+// // Loosened RSI requirement from 40 to 50
 // rsiOversold = rsiValue < 50
-
 // macdBullishCross = ta.crossover(macdLine, signalLine)
-
-// // The current price must be ABOVE the 50 SMA
 // uptrend = close > sma50
-
-// // Combine them
 // longCondition = rsiOversold and macdBullishCross and uptrend
-// ==========================================
-// 2. DEFINE THE ENTRY LOGIC (NAKED TEST)
-// ==========================================
 
-// We are turning off RSI and SMA for this test to force trades
+// // ENTRY
+// Turning off RSI and SMA for this test to force trades
 // rsiOversold = rsiValue < 50
 // uptrend = close > sma50
 
-// Only check for the MACD Cross
+// CHECK FOR MACD CROSS
 macdBullishCross = ta.crossover(macdLine, signalLine)
-
-// The long condition is NOW ONLY the MACD cross
 longCondition = macdBullishCross
 
-// ==========================================
-// 3. EXECUTE THE ENTRY
-// ==========================================
+// EXECTUE THE ENTRY
 if (longCondition)
     strategy.entry("Buy Call", strategy.long)
 
 
-// ==========================================
-// 4. DEFINE THE EXIT LOGIC
-// ==========================================
+// EXIT
 takeProfitPerc = 0.10 / 100 
 stopLossPerc = 0.30 / 100   
-
 takeProfitLevel = strategy.position_avg_price * (1 + takeProfitPerc)
 stopLossLevel = strategy.position_avg_price * (1 - stopLossPerc)
 
@@ -65,8 +47,6 @@ if (strategy.position_size > 0)
     strategy.exit("Exit Call", "Buy Call", limit=takeProfitLevel, stop=stopLossLevel)
 
 
-// ==========================================
-// 5. VISUALS
-// ==========================================
+// INDICATORS
 plotshape(series=longCondition, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.small)
 plot(sma50, color=color.orange, title="50 SMA", linewidth=2)
