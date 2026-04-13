@@ -42,6 +42,6 @@ if (strategy.position_size > 0)
 // Plot the VWAP line in bright blue
 plot(vwapValue, color=color.new(color.blue, 0), title="VWAP", linewidth=2)
 
-// // Only plot the green triangle if the condition is met AND we are not currently in a trade
-// actualBuyTrigger = longCondition and strategy.position_size == 0
-// plotshape(series=actualBuyTrigger, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.small)
+// Only plot the green triangle if the condition is met AND we are not currently in a trade
+actualBuyTrigger = longCondition and strategy.position_size == 0
+plotshape(series=actualBuyTrigger, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.triangleup, size=size.small)
