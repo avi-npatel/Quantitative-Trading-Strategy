@@ -59,7 +59,7 @@ def calculate_dynamic_levels(ticker_symbol, atr_period=14, sl_multiplier=2.0, tp
 
 
 # TICKER SYMBOL
-TARGET_STOCK = "NVDA" 
+TARGET_STOCK = "SNAP" 
 optimal_levels = calculate_dynamic_levels(TARGET_STOCK)
 print("\n--- Results ---")
 for key, value in optimal_levels.items():
