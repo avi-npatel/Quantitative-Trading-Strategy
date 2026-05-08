@@ -4,8 +4,8 @@ from datetime import datetime
 import pandas as pd
 
 # Initialize Alpaca Stream (Replace with Paper Trading keys)
-API_KEY = 'PKPWEEHLY7PXLM2LMCI6WOF43A'
-SECRET_KEY = 'D5ZEcn71xiMJyhTiWkruhuJBo5bSvcveYc2mgVmYV2L8'
+API_KEY = 'YOUR_PAPER_API_KEY'
+SECRET_KEY = 'YOUR_PAPER_SECRET_KEY'
 stream = StockDataStream(API_KEY, SECRET_KEY)
 
 # Dictionary to hold rolling minute data for each ticker
