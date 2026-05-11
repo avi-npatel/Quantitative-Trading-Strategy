@@ -4,8 +4,8 @@ from datetime import datetime
 import pandas as pd
 
 # Initialize Alpaca Stream (Replace with Paper Trading keys)
-API_KEY = 'YOUR_PAPER_API_KEY'
-SECRET_KEY = 'YOUR_PAPER_SECRET_KEY'
+API_KEY = 'PKPWEEHLY7PXLM2LMCI6WOF43A'
+SECRET_KEY = 'D5ZEcn71xiMJyhTiWkruhuJBo5bSvcveYc2mgVmYV2L8'
 stream = StockDataStream(API_KEY, SECRET_KEY)
 
 # Dictionary to hold rolling minute data for each ticker
@@ -17,19 +17,46 @@ MAX_PRICE = 40.00 # Keeping it under $40 to maximize leverage of a smaller accou
 MIN_PRICE = 1.00
 
 def check_930_momentum(symbol, df):
-    """Looks for 3 consecutive minutes of climbing price and volume at 9:30 AM"""
+    """Optimized 9:30 AM logic: 3-min climb, surging volume, and anti-wick trap filter"""
     if len(df) < 3: return
     
-    # Check if the last 3 closes are progressively higher (Sharp Increase)
+    # Price Step-Ladder
     climbing = df['close'].iloc[-1] > df['close'].iloc[-2] > df['close'].iloc[-3]
-    
-    # Check if the last 3 closes are progressively lower (Sharp Decrease)
     dropping = df['close'].iloc[-1] < df['close'].iloc[-2] < df['close'].iloc[-3]
     
-    if climbing:
-        print_alert("9:30 AM BULLISH CLIMB", symbol, df['close'].iloc[-1])
-    elif dropping:
-        print_alert("9:30 AM BEARISH DROP", symbol, df['close'].iloc[-1])
+    # Volume Conviction
+    current_vol = df['volume'].iloc[-1]
+    minute_1_vol = df['volume'].iloc[-3]
+    min_volume = 50000 
+    surge_factor = 1.5 
+    
+    volume_is_strong = (current_vol >= min_volume) and (current_vol > minute_1_vol * surge_factor)
+    
+    # The Wick Filter (Trap Detector)
+    open_price = df['open'].iloc[-1]
+    close_price = df['close'].iloc[-1]
+    high_price = df['high'].iloc[-1]
+    low_price = df['low'].iloc[-1]
+    
+    total_range = high_price - low_price
+    if total_range == 0: return # Prevent divide-by-zero errors on flat candles
+    
+    # Calculate where the close sits as a percentage (0.0 is the very bottom, 1.0 is the absolute peak)
+    close_percentile = (close_price - low_price) / total_range
+    
+    # For a bullish climb, the close MUST be in the top 30% (percentile >= 0.70)
+    bullish_no_trap = close_percentile >= 0.70
+    
+    # For a bearish drop, the close MUST be in the bottom 30% (percentile <= 0.30)
+    bearish_no_trap = close_percentile <= 0.30
+    
+    # 4. The Ultimate Trigger
+    if climbing and volume_is_strong and bullish_no_trap:
+        print_alert("9:30 AM BULL BREAKOUT (STRONG CLOSE)", symbol, close_price)
+        
+    elif dropping and volume_is_strong and bearish_no_trap:
+        print_alert("9:30 AM BEAR DROPDOWN (STRONG CLOSE)", symbol, close_price)
+
 
 def check_1030_velocity(symbol, df):
     """Looks for a sudden violent spike in price and volume at exactly 10:30 AM"""
@@ -51,6 +78,48 @@ def check_1030_velocity(symbol, df):
         
     elif pct_change <= -1.5 and current_vol > (avg_vol_10m * 3):
         print_alert("10:30 AM DOWNSIDE VELOCITY SPIKE", symbol, current_close)
+
+def check_downtime_anomaly(symbol, df):
+    """Catches sudden, abnormally large green candles during the mid-morning lull"""
+    # We need at least 10 minutes of history to know what "normal" looks like
+    if len(df) < 11: return 
+
+    # Is it a green candle?
+    current_open = df['open'].iloc[-1]
+    current_close = df['close'].iloc[-1]
+    
+    if current_close <= current_open: return # It's red or flat, ignore it
+
+    current_body_size = current_close - current_open
+
+    # Calculate "Normal" (Average body size of the last 10 candles)
+    # We use abs() to measure the size of the candle regardless of if it was red or green
+    past_bodies = abs(df['close'].iloc[-11:-1] - df['open'].iloc[-11:-1])
+    avg_body_size = past_bodies.mean()
+
+    # Prevent divide-by-zero errors if the stock has been totally flat
+    if avg_body_size < 0.01: 
+        avg_body_size = 0.01 
+
+    # The Math: Is this candle at least 3x bigger than the recent average?
+    is_abnormal = current_body_size > (avg_body_size * 3)
+
+    # The Safety Filters (Volume & Wicks)
+    meets_volume = df['volume'].iloc[-1] >= 50000
+    
+    high_price = df['high'].iloc[-1]
+    low_price = df['low'].iloc[-1]
+    total_range = high_price - low_price
+    
+    strong_close = False
+    if total_range > 0:
+        close_percentile = (current_close - low_price) / total_range
+        strong_close = close_percentile >= 0.70 # Must close in the top 30% (no giant wicks)
+
+    # The Trigger
+    if is_abnormal and meets_volume and strong_close:
+        multiplier = current_body_size / avg_body_size
+        print_alert(f"MID-MORNING ANOMALY ({multiplier:.1f}x SIZE)", symbol, current_close)
 
 def print_alert(alert_type, symbol, price):
     """Formats the output and generates a clickable TradingView link"""
@@ -82,14 +151,17 @@ async def handle_bar(bar):
     # Convert dictionary to a quick Pandas DataFrame for easy math
     df = pd.DataFrame(market_data[symbol])
 
-    # Time-based triggers
     current_time = datetime.now()
     
-    # 1. Run the 9:30 AM momentum logic between 9:30 and 9:35
-    if current_time.hour == 9 and 30 <= current_time.minute <= 35:
+    # 1. THE OPEN: 9:30 to 9:37
+    if current_time.hour == 9 and 30 <= current_time.minute <= 37:
         check_930_momentum(symbol, df)
         
-    # 2. Run the velocity spike logic continuously from 10:30 AM until the program is stopped
+    # 2. THE DOWNTIME: 9:38 to 10:29
+    elif (current_time.hour == 9 and current_time.minute > 37) or (current_time.hour == 10 and current_time.minute < 30):
+        check_downtime_anomaly(symbol, df)
+        
+    # 3. THE VELOCITY SHIFT: 10:30 to Close
     elif (current_time.hour == 10 and current_time.minute >= 30) or current_time.hour > 10:
         check_1030_velocity(symbol, df)
     
